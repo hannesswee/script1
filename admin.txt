@@ -1,0 +1,343 @@
+-- Admin-like script with a smaller GUI for fun commands
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Create the GUI for commands
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "AdminCommands"
+
+-- Create the Frame for the GUI (smaller size)
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 250)  -- Smaller size for the GUI
+frame.Position = UDim2.new(0, 16, 1, -490)  -- Adjusted position a little higher (above the chat)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+frame.BackgroundTransparency = 0.3
+frame.Visible = true  -- GUI visible at the start
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 15)
+corner.Parent = frame
+
+-- Add a title label
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.Text = "Hannes Admin Commands"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 18
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.BackgroundTransparency = 1
+titleLabel.Parent = frame
+
+-- List of commands with descriptions
+local commands = {
+    {"!teleport [player]", "Teleport to a player."},
+    {"!explode", "Explode yourself (without dying)."},
+    {"!speed [value]", "Set your walk speed."},
+    {"!jump [value]", "Set your jump power."},
+    {"!size [value]", "Change your character's size."},
+    {"!spin", "Make your character spin around."},
+    {"!rocket", "Fly upwards like a rocket."},
+    {"!meteor", "Start a meteor shower!"},
+    {"!parttool", "Get a tool to spawn parts when clicking!"}  -- Added parttool command
+}
+
+-- Create a UIListLayout to arrange the command buttons
+local layout = Instance.new("UIListLayout")
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.Padding = UDim.new(0, 8)
+layout.Parent = frame
+
+-- Create the buttons for each command
+for _, command in ipairs(commands) do
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 40)
+    button.Text = command[1]
+    button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 16
+    button.BorderSizePixel = 0
+    button.Parent = frame
+
+    -- Hover effect
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end)
+
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    end)
+
+    -- Command actions (will be triggered by chat command handler)
+    button.MouseButton1Click:Connect(function()
+        game.ReplicatedStorage:WaitForChild("AdminCommands"):FireServer(command[1]) -- Sends to server
+    end)
+end
+
+-- Function to create a meteor shower effect
+local function createMeteorShower(speaker)
+    for i = 1, 5 do  -- Number of meteors
+        -- Create the meteor
+        local meteor = Instance.new("Part")
+        meteor.Size = Vector3.new(5, 5, 5)
+        meteor.Shape = Enum.PartType.Ball
+        meteor.Position = Vector3.new(math.random(-50, 50), 100, math.random(-50, 50))  -- Start high above
+        meteor.Anchored = false
+        meteor.CanCollide = true
+        meteor.BrickColor = BrickColor.new("Bright red")
+        meteor.Parent = workspace
+
+        -- Add a fire effect to simulate a burning meteor
+        local fire = Instance.new("Fire")
+        fire.Heat = 25
+        fire.Size = 10
+        fire.Parent = meteor
+
+        -- Meteor fall
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+        bodyVelocity.Velocity = Vector3.new(0, -50, 0)  -- Fall downwards
+        bodyVelocity.Parent = meteor
+
+        -- Explosion effect when the meteor hits the ground
+        meteor.Touched:Connect(function(hit)
+            if hit and hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
+                -- Explosion effect
+                local explosion = Instance.new("Explosion")
+                explosion.Position = meteor.Position
+                explosion.BlastRadius = 10
+                explosion.BlastPressure = 1000
+                explosion.Parent = workspace
+
+                -- Destroy the meteor after explosion
+                meteor:Destroy()
+            end
+        end)
+
+        wait(1)  -- Wait 1 second between meteors
+    end
+end
+
+-- Function to teleport to another player
+local function teleportToPlayer(targetName)
+    local targetPlayer = game.Players:FindFirstChild(targetName)
+    if targetPlayer and targetPlayer.Character then
+        character:SetPrimaryPartCFrame(targetPlayer.Character.HumanoidRootPart.CFrame)
+        print("Teleported to " .. targetName)
+    else
+        print("Player not found.")
+    end
+end
+
+-- Function to make the player explode (without dying)
+local function explodePlayer()
+    local explosion = Instance.new("Explosion")
+    explosion.Position = character.HumanoidRootPart.Position
+    explosion.BlastRadius = 5
+    explosion.BlastPressure = 0
+    explosion.Hit:Connect(function(part)
+        if part.Parent == character then
+            part:BreakJoints() -- Simulate explosion effect
+        end
+    end)
+    explosion.Parent = workspace
+    print("You have exploded!")
+end
+
+-- Function to change the player's walk speed
+local function setSpeed(value)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = tonumber(value) or 16
+        print("Walk speed set to " .. humanoid.WalkSpeed)
+    end
+end
+
+-- Function to change the player's jump power (updated to work properly)
+local function setJumpPower(value)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.JumpPower = tonumber(value) or 50  -- JumpPower used instead of JumpHeight
+        print("Jump power set to " .. humanoid.JumpPower)
+    end
+end
+
+-- Function to change the player's size
+local function setSize(value)
+    local newSize = tonumber(value) or 2
+    for _, part in pairs(character:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.Size = part.Size * newSize
+        end
+    end
+    print("Player size changed to " .. newSize)
+end
+
+-- Function to make the player spin
+local function spinPlayer()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        while true do
+            humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.Angles(0, math.rad(5), 0)
+            wait(0.1)
+        end
+    end
+end
+
+-- Function to make the player fly upwards like a rocket
+local function rocketPlayer()
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+        bodyVelocity.Velocity = Vector3.new(0, 100, 0)  -- Move upwards
+        bodyVelocity.Parent = humanoidRootPart
+        wait(5)  -- Let the player fly for 5 seconds
+        bodyVelocity:Destroy()  -- Stop flying after 5 seconds
+        print("You are flying like a rocket!")
+    end
+end
+
+-- Function to give the part-spawning tool to the player
+local function givePartTool()
+    -- Check if the player already has the tool
+    local existingTool = player.Backpack:FindFirstChild("PartTool")
+    if existingTool then
+        print("You already have the part tool.")
+        return
+    end
+
+    -- Create the part-spawning tool
+    local tool = Instance.new("Tool")
+    tool.Name = "PartTool"
+    tool.RequiresHandle = true
+    tool.Parent = player.Backpack
+
+    -- Create a handle for the tool
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(1, 1, 1)
+    handle.Anchored = false
+    handle.CanCollide = false
+    handle.BrickColor = BrickColor.new("Bright red")
+    handle.Parent = tool
+
+tool.Activated:Connect(function()
+    -- Raycast from the player's mouse to get the clicked location
+    local mouse = player:GetMouse()
+    local targetPos = mouse.Hit.p
+
+    -- Create a new unanchored part at the target position
+    local part = Instance.new("Part")
+
+    -- List of possible shapes
+    local shapeChoice = math.random(1, 6)  -- Expanded to 6 options
+    if shapeChoice == 1 then
+        part.Shape = Enum.PartType.Block  -- Cube/Block
+    elseif shapeChoice == 2 then
+        part.Shape = Enum.PartType.Ball  -- Sphere
+    elseif shapeChoice == 3 then
+        part.Shape = Enum.PartType.Cylinder  -- Cylinder
+    elseif shapeChoice == 4 then
+        part.Shape = Enum.PartType.Wedge  -- Wedge
+    elseif shapeChoice == 5 then
+        part.Shape = Enum.PartType.CornerWedge  -- Corner Wedge
+    elseif shapeChoice == 6 then
+        part.Shape = Enum.PartType.Cylinder  -- Double cylinder for variety
+    end
+
+    -- Randomize size
+    local sizeX = math.random(3, 8)
+    local sizeY = math.random(1, 5)
+    local sizeZ = math.random(3, 8)
+    part.Size = Vector3.new(sizeX, sizeY, sizeZ)
+
+    -- Position the part a little above the ground
+    part.Position = targetPos + Vector3.new(0, 5, 0)
+
+    -- Randomize color
+    part.Color = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
+
+    -- Randomize material
+    local materials = {Enum.Material.SmoothPlastic, Enum.Material.Neon, Enum.Material.Metal, Enum.Material.Glass, Enum.Material.Wood}
+    part.Material = materials[math.random(1, #materials)]
+
+    -- Set it to be unanchored
+    part.Anchored = false
+
+    -- Add a particle effect to all parts (using built-in particle effects)
+    local particleEffectChoice = math.random(1, 3)
+    
+    if particleEffectChoice == 1 then
+        -- Add Smoke effect
+        local smoke = Instance.new("ParticleEmitter")
+        smoke.Texture = "rbxassetid://24242404"  -- Built-in smoke texture
+        smoke.Size = NumberSequence.new(1, 3)
+        smoke.Lifetime = NumberRange.new(1, 2)
+        smoke.Speed = NumberRange.new(5, 10)
+        smoke.Rate = 20
+        smoke.Parent = part
+    elseif particleEffectChoice == 2 then
+        -- Add Fire effect
+        local fire = Instance.new("ParticleEmitter")
+        fire.Texture = "rbxassetid://23473508"  -- Built-in fire texture
+        fire.Size = NumberSequence.new(1, 4)
+        fire.Lifetime = NumberRange.new(0.5, 1.5)
+        fire.Speed = NumberRange.new(15, 30)
+        fire.Rate = 30
+        fire.Parent = part
+    elseif particleEffectChoice == 3 then
+        -- Add Sparkles effect
+        local sparkles = Instance.new("ParticleEmitter")
+        sparkles.Texture = "rbxassetid://24398329"  -- Built-in sparkles texture
+        sparkles.Size = NumberSequence.new(0.5, 1)
+        sparkles.Lifetime = NumberRange.new(1, 2)
+        sparkles.Speed = NumberRange.new(5, 10)
+        sparkles.Rate = 25
+        sparkles.Parent = part
+    end
+
+    -- Parent the part to the workspace
+    part.Parent = workspace
+end)
+
+    print("You have received the PartTool!")
+end
+
+-- Function to handle commands typed in chat
+local function onChatMessage(message)
+    if message:sub(1, 1) == "!" then
+        local args = message:split(" ")
+        local command = args[1]:lower()
+
+        if command == "!teleport" and args[2] then
+            teleportToPlayer(args[2])
+        elseif command == "!explode" then
+            explodePlayer()
+        elseif command == "!speed" and args[2] then
+            setSpeed(args[2])
+        elseif command == "!jump" and args[2] then
+            setJumpPower(args[2])
+        elseif command == "!size" and args[2] then
+            setSize(args[2])
+        elseif command == "!spin" then
+            spinPlayer()
+        elseif command == "!rocket" then
+            rocketPlayer()
+        elseif command == "!meteor" then
+            createMeteorShower(player)
+        elseif command == "!parttool" then
+            givePartTool()  -- Give the part tool to the player
+        else
+            print("Command not recognized!")
+        end
+    end
+end
+
+-- Listen for chat messages
+player.Chatted:Connect(onChatMessage)
+
+print("Basic admin commands script by Hannes was loaded successfully!")
